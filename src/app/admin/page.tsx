@@ -13,7 +13,7 @@ const initClients: Client[] = [
   { id: "6", name: "برغر هاوس", subdomain: "burger", plan: "شهري", status: "trial", created: "10 فبراير 2025", expires: "10 مارس 2025", emoji: "🍔", color: "rgba(168,85,247,0.13)" },
 ];
 
-const S: Record<string, React.CSSProperties> = {
+const S: Record<string, any> = {
   page: { minHeight: "100vh", background: "#09090f", color: "#f1f5f9", fontFamily: "'Cairo','Tajawal',sans-serif", display: "flex" },
   sidebar: { width: 220, flexShrink: 0, background: "#0e1017", borderLeft: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", height: "100vh", position: "sticky", top: 0 },
   sidebarLogo: { display: "flex", alignItems: "center", gap: 10, padding: "18px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" },
