@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { createClient as createClientInDB } from "@/lib/auth";
 
 type Client = { id: string; name: string; subdomain: string; plan: string; status: string; created: string; expires: string; emoji: string; color: string };
 
@@ -67,21 +68,48 @@ export default function Admin() {
 
   const showToast = (msg: string) => { setToast({ show: true, msg }); setTimeout(() => setToast({ show: false, msg: "" }), 2600); };
 
-  const addClient = () => {
+  const addClient = async () => {
     if (!newName.trim() || !newSub.trim()) { showToast("⚠️ أدخل الاسم والـ Subdomain"); return; }
     if (!newUsername.trim() || !newPassword.trim()) { showToast("⚠️ أدخل اسم المستخدم وكلمة المرور"); return; }
+    
+    showToast("⏳ جارٍ إنشاء الحساب...");
+    
+    // حفظ في قاعدة البيانات
+    const result = await createClientInDB({
+      name: newName,
+      subdomain: newSub,
+      email: newEmail,
+      phone: newPhone,
+      plan: newPlan,
+      username: newUsername,
+      password: newPassword,
+    });
+
+    if (!result.success) {
+      showToast(`❌ فشل: ${result.error}`);
+      return;
+    }
+
+    // إضافة للواجهة
     const planMap: Record<string, string> = { trial: "تجريبي", monthly: "شهري", semi: "نصف سنوي", annual: "سنوي" };
     const emojis = ["🏪", "☕", "🍽", "🥗", "🍖", "🍕", "🍔"];
     const colors = ["rgba(249,115,22,0.13)", "rgba(59,130,246,0.13)", "rgba(34,197,94,0.13)", "rgba(168,85,247,0.13)"];
-    const nc: Client = { id: Date.now().toString(), name: newName, subdomain: newSub, plan: planMap[newPlan], status: newPlan === "trial" ? "trial" : "active", created: new Date().toLocaleDateString("ar-SA"), expires: "—", emoji: emojis[Math.floor(Math.random() * emojis.length)], color: colors[Math.floor(Math.random() * colors.length)] };
+    const nc: Client = { 
+      id: result.client.id, 
+      name: newName, 
+      subdomain: newSub, 
+      plan: planMap[newPlan], 
+      status: newPlan === "trial" ? "trial" : "active", 
+      created: new Date().toLocaleDateString("ar-SA"), 
+      expires: "—", 
+      emoji: emojis[Math.floor(Math.random() * emojis.length)], 
+      color: colors[Math.floor(Math.random() * colors.length)] 
+    };
     setClients(c => [nc, ...c]);
     
-    // TODO: حفظ في قاعدة البيانات
-    // سنضيف هذا لاحقاً
-    console.log("بيانات الدخول:", { username: newUsername, password: newPassword, subdomain: newSub });
-    
-    setModal(false); setNewName(""); setNewSub(""); setNewEmail(""); setNewPhone(""); setNewUsername(""); setNewPassword("");
-    showToast(`✅ تم إضافة "${newName}" - اسم المستخدم: ${newUsername}`);
+    setModal(false); 
+    setNewName(""); setNewSub(""); setNewEmail(""); setNewPhone(""); setNewUsername(""); setNewPassword("");
+    showToast(`✅ تم إنشاء "${newName}" - اسم المستخدم: ${newUsername}`);
   };
   const deleteClient = (id: string) => { setClients(c => c.filter(cl => cl.id !== id)); showToast("🗑 تم حذف العميل"); };
 
