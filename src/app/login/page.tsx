@@ -94,11 +94,6 @@ export default function Login() {
           </div>
         </form>
 
-        <div style={{ marginTop: 24, padding: "16px", background: "#1c1f2c", borderRadius: 10, fontSize: "0.78rem", color: "#94a3b8", lineHeight: 1.7 }}>
-          <strong style={{ color: "#f1f5f9", display: "block", marginBottom: 6 }}>💡 بيانات تجريبية:</strong>
-          اسم المستخدم: <code style={{ background: "#0e1017", padding: "2px 6px", borderRadius: 4, color: "#f97316" }}>alfanar</code><br />
-          كلمة المرور: <code style={{ background: "#0e1017", padding: "2px 6px", borderRadius: 4, color: "#f97316" }}>123456</code>
-        </div>
       </div>
 
     </div>
