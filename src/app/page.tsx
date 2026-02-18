@@ -57,7 +57,7 @@ export default function Home() {
           <a href="#how" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.88rem", fontWeight: 600 }}>كيف يعمل</a>
           <a href="#features" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.88rem", fontWeight: 600 }}>المميزات</a>
           <a href="#pricing" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "0.88rem", fontWeight: 600 }}>الأسعار</a>
-          <Link href="/dashboard" style={{ background: "#f97316", color: "#fff", padding: "9px 22px", borderRadius: 50, textDecoration: "none", fontSize: "0.88rem", fontWeight: 700, boxShadow: "0 3px 14px rgba(249,115,22,0.35)" }}>ابدأ مجاناً</Link>
+          <Link href="/dashboard" style={{ background: "#f97316", color: "#fff", padding: "9px 22px", borderRadius: 50, textDecoration: "none", fontSize: "0.88rem", fontWeight: 700, boxShadow: "0 3px 14px rgba(249,115,22,0.35)" }}>الدخول إلى لوحة التحكم</Link>
         </div>
       </nav>
 
