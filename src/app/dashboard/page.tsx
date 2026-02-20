@@ -119,7 +119,7 @@ function DashboardContent() {
 
   const generateQR = async () => {
     try {
-      const QRCode = require("qrcode");
+      const QRCode = (await import("qrcode")).default;
       const dataUrl = await QRCode.toDataURL(menuUrl, { width: 512, margin: 2, color: { dark: "#1a1a2e", light: "#ffffff" } });
       setQrDataUrl(dataUrl);
       setModal("qr");
@@ -157,7 +157,8 @@ function DashboardContent() {
   };
 
   const saveCat = async () => {
-    if (!catName.trim() || !restaurant) return showToast("⚠️ أدخل اسم القسم");
+    if (!catName.trim()) return showToast("⚠️ أدخل اسم القسم");
+    if (!restaurant) return showToast("❌ خطأ: بيانات المطعم غير موجودة");
     try {
       let imageUrl = catImagePreview;
       if (catImage) imageUrl = await uploadImage(catImage, 'categories');
