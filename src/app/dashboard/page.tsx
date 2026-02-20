@@ -108,8 +108,14 @@ function DashboardContent() {
         const { data: cats } = await supabase.from('categories').select('*').eq('restaurant_id', restData.id).order('sort_order');
         setCategories(cats || []);
 
-        const { data: itms } = await supabase.from('items').select('*').order('sort_order');
-        setItems(itms || []);
+        // جلب الأصناف الخاصة بهذا المطعم فقط
+        const catIds = (cats || []).map((c: any) => c.id);
+        if (catIds.length > 0) {
+          const { data: itms } = await supabase.from('items').select('*').in('category_id', catIds).order('sort_order');
+          setItems(itms || []);
+        } else {
+          setItems([]);
+        }
       }
     } catch (e: any) {
       console.error("Load error:", e);
