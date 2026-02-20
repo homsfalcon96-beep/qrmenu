@@ -39,6 +39,18 @@ const S = {
   uploadBox: { width: "100%", minHeight: 100, border: "2px dashed rgba(255,255,255,0.1)", borderRadius: 10, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", background: "#1c1f2c", padding: 16 },
 };
 
+// دالة مساعدة لاستدعاء API Route الخاص بنا
+async function dashboardApi(action: string, data: object = {}) {
+  const res = await fetch('/api/dashboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...data }),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
+}
+
 function DashboardContent() {
   const router = useRouter();
   const [tab, setTab] = useState<"home" | "categories" | "items" | "info">("home");
@@ -66,7 +78,6 @@ function DashboardContent() {
     const userData = localStorage.getItem("user");
     if (userData) {
       const parsed = JSON.parse(userData);
-      console.log("User data:", parsed);
       setUser(parsed);
       const clientId = parsed.clients?.id || parsed.client_id;
       if (clientId) loadData(clientId);
@@ -77,9 +88,10 @@ function DashboardContent() {
   const loadData = async (clientId: string) => {
     setLoading(true);
     try {
+      // القراءة تبقى عبر supabase مباشرة (anon key يكفي للقراءة)
       const { data: restData, error: restError } = await supabase.from('restaurants').select('*').eq('client_id', clientId).single();
       if (restError) throw restError;
-      
+
       if (restData) {
         setRestaurant(restData);
         setRestName(restData.name || "");
@@ -88,20 +100,20 @@ function DashboardContent() {
         setRestAddress(restData.address || "");
         setWifiName(restData.wifi_name || "");
         setWifiPass(restData.wifi_password || "");
-        
+
         const { data: clientData } = await supabase.from('clients').select('subdomain').eq('id', clientId).single();
         const url = `https://menu.qrmenu.com/${clientData?.subdomain || 'menu'}`;
         setMenuUrl(url);
-        
+
         const { data: cats } = await supabase.from('categories').select('*').eq('restaurant_id', restData.id).order('sort_order');
         setCategories(cats || []);
-        
+
         const { data: itms } = await supabase.from('items').select('*').order('sort_order');
         setItems(itms || []);
       }
-    } catch (e: any) { 
-      console.error("Load error:", e); 
-      showToast(`❌ خطأ: ${e.message}`); 
+    } catch (e: any) {
+      console.error("Load error:", e);
+      showToast(`❌ خطأ: ${e.message}`);
     }
     setLoading(false);
   };
@@ -110,7 +122,7 @@ function DashboardContent() {
 
   const shareMenu = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: restName, text: `قائمة ${restName}`, url: menuUrl }); } 
+      try { await navigator.share({ title: restName, text: `قائمة ${restName}`, url: menuUrl }); }
       catch (e) { copyMenuUrl(); }
     } else { copyMenuUrl(); }
   };
@@ -136,7 +148,7 @@ function DashboardContent() {
 
   const openAddCat = () => { setCatName(""); setCatEmoji("🍽"); setCatImage(null); setCatImagePreview(""); setEditingCat(null); setModal("addCat"); };
   const openEditCat = (c: Category) => { setEditingCat(c); setCatName(c.name); setCatEmoji(c.emoji); setCatImagePreview(c.image_url || ""); setModal("editCat"); };
-  
+
   const handleCatImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -147,46 +159,68 @@ function DashboardContent() {
     }
   };
 
-  const uploadImage = async (file: File, bucket: string) => {
+  // رفع الصورة عبر API Route (server-side)
+  const uploadImage = async (file: File, bucket: string): Promise<string> => {
+    const reader = new FileReader();
+    const base64 = await new Promise<string>((resolve) => {
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const { error } = await supabase.storage.from(bucket).upload(fileName, file);
-    if (error) throw error;
-    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
-    return publicUrl;
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+    const result = await dashboardApi('uploadImage', { base64, fileName, bucket });
+    return result.publicUrl;
   };
 
   const saveCat = async () => {
     if (!catName.trim()) return showToast("⚠️ أدخل اسم القسم");
     if (!restaurant) return showToast("❌ خطأ: بيانات المطعم غير موجودة");
     try {
-      let imageUrl = catImagePreview;
-      if (catImage) imageUrl = await uploadImage(catImage, 'categories');
+      let imageUrl = editingCat?.image_url || "";
+      // إذا اختار صورة جديدة من الجهاز
+      if (catImage) {
+        imageUrl = await uploadImage(catImage, 'categories');
+      } else if (catImagePreview && !catImagePreview.startsWith('http')) {
+        // base64 بدون رفع - تجاهل
+        imageUrl = editingCat?.image_url || "";
+      } else if (catImagePreview.startsWith('http')) {
+        imageUrl = catImagePreview;
+      }
 
       if (editingCat) {
-        const { error } = await supabase.from('categories').update({ name: catName, emoji: catEmoji, image_url: imageUrl }).eq('id', editingCat.id);
-        if (error) throw error;
+        await dashboardApi('updateCategory', {
+          id: editingCat.id,
+          payload: { name: catName, emoji: catEmoji, image_url: imageUrl }
+        });
         showToast("✅ تم التعديل!");
       } else {
-        const { error } = await supabase.from('categories').insert({ restaurant_id: restaurant.id, name: catName, emoji: catEmoji, image_url: imageUrl, sort_order: categories.length, is_visible: true });
-        if (error) throw error;
+        await dashboardApi('insertCategory', {
+          payload: { restaurant_id: restaurant.id, name: catName, emoji: catEmoji, image_url: imageUrl, sort_order: categories.length, is_visible: true }
+        });
         showToast("✅ تم الإضافة!");
       }
-      
+
       const clientId = user.clients?.id || user.client_id;
       await loadData(clientId);
       setModal(null);
     } catch (e: any) { console.error(e); showToast(`❌ ${e.message}`); }
   };
 
-  const deleteCat = async (id: string) => { 
-    try { await supabase.from('categories').delete().eq('id', id); showToast("🗑 تم الحذف"); const clientId = user.clients?.id || user.client_id; loadData(clientId); } 
-    catch { showToast("❌ خطأ"); } 
+  const deleteCat = async (id: string) => {
+    try {
+      await dashboardApi('deleteCategory', { id });
+      showToast("🗑 تم الحذف");
+      const clientId = user.clients?.id || user.client_id;
+      loadData(clientId);
+    } catch { showToast("❌ خطأ"); }
   };
-  
-  const toggleCatVis = async (id: string, vis: boolean) => { 
-    try { await supabase.from('categories').update({ is_visible: !vis }).eq('id', id); const clientId = user.clients?.id || user.client_id; loadData(clientId); } 
-    catch { showToast("❌ خطأ"); } 
+
+  const toggleCatVis = async (id: string, vis: boolean) => {
+    try {
+      await dashboardApi('updateCategory', { id, payload: { is_visible: !vis } });
+      const clientId = user.clients?.id || user.client_id;
+      loadData(clientId);
+    } catch { showToast("❌ خطأ"); }
   };
 
   const openAddItem = () => { setItemName(""); setItemDesc(""); setItemPrice(""); setItemCatId(categories[0]?.id || ""); setItemEmoji("🍽"); setItemImage(null); setItemImagePreview(""); setEditingItem(null); setModal("addItem"); };
@@ -205,30 +239,57 @@ function DashboardContent() {
   const saveItem = async () => {
     if (!itemName.trim() || !itemPrice) return showToast("⚠️ أدخل البيانات");
     try {
-      let imageUrl = itemImagePreview;
-      if (itemImage) imageUrl = await uploadImage(itemImage, 'items');
+      let imageUrl = editingItem?.image_url || "";
+      if (itemImage) {
+        imageUrl = await uploadImage(itemImage, 'items');
+      } else if (itemImagePreview.startsWith('http')) {
+        imageUrl = itemImagePreview;
+      }
 
       if (editingItem) {
-        await supabase.from('items').update({ name: itemName, description: itemDesc, price: parseFloat(itemPrice), category_id: itemCatId, emoji: itemEmoji, image_url: imageUrl }).eq('id', editingItem.id);
+        await dashboardApi('updateItem', {
+          id: editingItem.id,
+          payload: { name: itemName, description: itemDesc, price: parseFloat(itemPrice), category_id: itemCatId, emoji: itemEmoji, image_url: imageUrl }
+        });
         showToast("✅ تم التعديل!");
       } else {
-        await supabase.from('items').insert({ category_id: itemCatId, name: itemName, description: itemDesc, price: parseFloat(itemPrice), emoji: itemEmoji, image_url: imageUrl, is_visible: true, sort_order: items.length });
+        await dashboardApi('insertItem', {
+          payload: { category_id: itemCatId, name: itemName, description: itemDesc, price: parseFloat(itemPrice), emoji: itemEmoji, image_url: imageUrl, is_visible: true, sort_order: items.length }
+        });
         showToast("✅ تم الإضافة!");
       }
-      
+
       const clientId = user.clients?.id || user.client_id;
       await loadData(clientId);
       setModal(null);
     } catch (e: any) { console.error(e); showToast(`❌ ${e.message}`); }
   };
 
-  const deleteItem = async (id: string) => { try { await supabase.from('items').delete().eq('id', id); showToast("🗑 تم الحذف"); const clientId = user.clients?.id || user.client_id; loadData(clientId); } catch { showToast("❌ خطأ"); } };
-  const toggleItemVis = async (id: string, vis: boolean) => { try { await supabase.from('items').update({ is_visible: !vis }).eq('id', id); showToast("👁 تم التغيير"); const clientId = user.clients?.id || user.client_id; loadData(clientId); } catch { showToast("❌ خطأ"); } };
+  const deleteItem = async (id: string) => {
+    try {
+      await dashboardApi('deleteItem', { id });
+      showToast("🗑 تم الحذف");
+      const clientId = user.clients?.id || user.client_id;
+      loadData(clientId);
+    } catch { showToast("❌ خطأ"); }
+  };
+
+  const toggleItemVis = async (id: string, vis: boolean) => {
+    try {
+      await dashboardApi('updateItem', { id, payload: { is_visible: !vis } });
+      showToast("👁 تم التغيير");
+      const clientId = user.clients?.id || user.client_id;
+      loadData(clientId);
+    } catch { showToast("❌ خطأ"); }
+  };
 
   const saveRestInfo = async () => {
     if (!restaurant) return;
     try {
-      await supabase.from('restaurants').update({ name: restName, description: restDesc, phone: restPhone, address: restAddress, wifi_name: wifiName, wifi_password: wifiPass }).eq('id', restaurant.id);
+      await dashboardApi('updateRestaurant', {
+        id: restaurant.id,
+        payload: { name: restName, description: restDesc, phone: restPhone, address: restAddress, wifi_name: wifiName, wifi_password: wifiPass }
+      });
       showToast("💾 تم الحفظ!");
       const clientId = user.clients?.id || user.client_id;
       loadData(clientId);
