@@ -15,7 +15,10 @@ export default function MenuPage({ params }: { params: { slug: string } }) {
   const [notFound, setNotFound] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
-  useEffect(() => { loadMenu(); }, [params.slug]);
+  useEffect(() => {
+    console.log('SLUG RECEIVED:', JSON.stringify(params.slug));
+    loadMenu();
+  }, [params.slug]);
 
   const loadMenu = async () => {
     try {
