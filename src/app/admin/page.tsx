@@ -3,6 +3,14 @@ import { useState, useEffect } from "react";
 import { createClient as createClientInDB, getAllClients } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
+// ══════════════════════════════════════════
+//  بيانات دخول الأدمن — لتغييرها عدّل هنا
+// ══════════════════════════════════════════
+const ADMIN_USERNAME = "omar";
+const ADMIN_PASSWORD = "omar.111";
+// ══════════════════════════════════════════
+
+
 type Client = {
   id: string; name: string; subdomain: string; plan: string; planKey: string;
   status: string; created: string; expires: string; expiresDate: Date | null;
@@ -96,6 +104,10 @@ async function logActivity(type: string, message: string, clientName: string) {
 }
 
 export default function Admin() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginError, setLoginError] = useState(false);
   const [page, setPage] = useState("dashboard");
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
@@ -120,6 +132,16 @@ export default function Admin() {
   const [editPlan, setEditPlan] = useState("monthly"); const [extendDays, setExtendDays] = useState("30");
 
   const showToast = (msg: string) => { setToast({ show: true, msg }); setTimeout(() => setToast({ show: false, msg: "" }), 2800); };
+
+  const handleLogin = () => {
+    if (loginUser === ADMIN_USERNAME && loginPass === ADMIN_PASSWORD) {
+      setIsLoggedIn(true);
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+      setLoginPass("");
+    }
+  };
 
   const statusLabel: Record<string, string> = { active: "● نشط", expired: "✕ منتهي", expiring: "⏰ ينتهي قريباً", trial: "◎ تجريبي", frozen: "❄ مجمد" };
   const planKey: Record<string, string> = { "شهري": "monthly", "سنوي": "annual", "نصف سنوي": "semi", "تجريبي": "trial" };
@@ -293,6 +315,59 @@ export default function Admin() {
 
   const activityDot: Record<string, string> = { new_client: "#22c55e", plan_change: "#f97316", extend: "#3b82f6", cancel: "#ef4444", freeze: "#60a5fa", unfreeze: "#22c55e", delete: "#ef4444", expiring: "#f59e0b" };
 
+  // ── شاشة تسجيل الدخول ──
+  if (!isLoggedIn) return (
+    <div style={{ minHeight: "100vh", background: "#09090f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Cairo','Tajawal',sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900&family=Tajawal:wght@700;900&display=swap');*{box-sizing:border-box;}`}</style>
+      <div style={{ width: "100%", maxWidth: 380, margin: 20 }}>
+        {/* اللوغو */}
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ width: 60, height: 60, borderRadius: 18, background: "#f97316", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, margin: "0 auto 14px", boxShadow: "0 8px 32px rgba(249,115,22,0.35)" }}>🍽</div>
+          <div style={{ fontFamily: "'Tajawal',sans-serif", fontSize: "1.5rem", fontWeight: 900, color: "#f1f5f9" }}>QR<span style={{ color: "#f97316" }}>Menu</span></div>
+          <div style={{ fontSize: "0.75rem", color: "#4b5563", marginTop: 4, fontWeight: 700 }}>لوحة تحكم المشرف</div>
+        </div>
+
+        {/* بطاقة الدخول */}
+        <div style={{ background: "#13161e", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 20, padding: 28 }}>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 800, color: "#4b5563", marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>اسم المستخدم</label>
+            <input
+              style={{ width: "100%", background: "#1c1f2c", border: `1.5px solid ${loginError ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, color: "#f1f5f9", padding: "11px 14px", fontSize: "0.92rem", fontFamily: "'Cairo',sans-serif", outline: "none", direction: "ltr" }}
+              placeholder="username"
+              value={loginUser}
+              onChange={e => { setLoginUser(e.target.value); setLoginError(false); }}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+              autoComplete="username"
+            />
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 800, color: "#4b5563", marginBottom: 7, textTransform: "uppercase", letterSpacing: 0.5 }}>كلمة المرور</label>
+            <input
+              style={{ width: "100%", background: "#1c1f2c", border: `1.5px solid ${loginError ? "rgba(239,68,68,0.4)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, color: "#f1f5f9", padding: "11px 14px", fontSize: "0.92rem", fontFamily: "'Cairo',sans-serif", outline: "none", direction: "ltr" }}
+              placeholder="••••••••"
+              type="password"
+              value={loginPass}
+              onChange={e => { setLoginPass(e.target.value); setLoginError(false); }}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+              autoComplete="current-password"
+            />
+          </div>
+          {loginError && (
+            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: "0.82rem", color: "#ef4444", fontWeight: 700, textAlign: "center" }}>
+              ❌ اسم المستخدم أو كلمة المرور غير صحيحة
+            </div>
+          )}
+          <button
+            onClick={handleLogin}
+            style={{ width: "100%", background: "#f97316", color: "#fff", border: "none", borderRadius: 12, padding: "13px", fontFamily: "'Cairo',sans-serif", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", boxShadow: "0 4px 16px rgba(249,115,22,0.35)", transition: "opacity 0.2s" }}
+          >
+            🔐 تسجيل الدخول
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={S.page}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900&family=Tajawal:wght@400;700;900&display=swap');*{box-sizing:border-box;}`}</style>
@@ -334,7 +409,8 @@ export default function Admin() {
         <div style={{ padding: "12px 8px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10 }}>
             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#f97316,#f59e0b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900 }}>م</div>
-            <div><div style={{ fontSize: "0.82rem", fontWeight: 800 }}>المشرف العام</div><div style={{ fontSize: "0.68rem", color: "#4b5563" }}>Super Admin</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: "0.82rem", fontWeight: 800 }}>{ADMIN_USERNAME}</div><div style={{ fontSize: "0.68rem", color: "#4b5563" }}>Super Admin</div></div>
+          <button onClick={() => { setIsLoggedIn(false); setLoginUser(""); setLoginPass(""); }} title="تسجيل الخروج" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 8, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#ef4444", flexShrink: 0 }}>↩</button>
           </div>
         </div>
       </aside>
